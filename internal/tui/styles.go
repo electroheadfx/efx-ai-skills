@@ -97,6 +97,11 @@ var (
 	// Spinner
 	spinnerStyle = lipgloss.NewStyle().
 			Foreground(primary)
+
+	// Status line
+	statusLineStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280")).
+			Italic(true)
 )
 
 // Helper functions

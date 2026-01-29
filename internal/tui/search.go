@@ -183,8 +183,12 @@ func (m searchModel) View() string {
 	sourceWidth := availableWidth * 55 / 100 // 55% for source
 
 	// Title
-	b.WriteString(titleStyle.Render("Search Skills"))
+	b.WriteString(titleStyle.Render("efx-skills v0.1.0 - Laurent Marques"))
 	b.WriteString("\n\n")
+
+	// Section: Search Skills
+	b.WriteString(subtitleStyle.Render("Search Skills"))
+	b.WriteString("\n")
 
 	// Search input
 	b.WriteString("  > ")

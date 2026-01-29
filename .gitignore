@@ -1,0 +1,31 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+dist/
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.o
+*.a
+*.mod.sum
+
+# Planning docs (internal)
+PLAN.md
+ARCHITECTURE.md

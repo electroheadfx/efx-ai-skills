@@ -176,7 +176,7 @@ func (m statusModel) View() string {
 	}
 
 	// Title
-	b.WriteString(titleStyle.Render("efx-skills v0.1.0"))
+	b.WriteString(titleStyle.Render("efx-skills v0.1.0 - Laurent Marques"))
 	b.WriteString("\n")
 
 	if m.loading {
@@ -199,7 +199,7 @@ func (m statusModel) View() string {
 	skillsW := 10
 	statusW := w - providerW - skillsW - 10 // Use remaining width for status
 	
-	header := fmt.Sprintf("  %-*s  %*s    %-*s", providerW, "Provider", skillsW, "Skills", statusW, "Status")
+	header := fmt.Sprintf("  %-*s  %*s  %*s", providerW, "Provider", skillsW, "Skills", statusW, "Status")
 	b.WriteString(getTableHeaderStyle(w).Render(header))
 	b.WriteString("\n")
 
@@ -225,7 +225,7 @@ func (m statusModel) View() string {
 			if !p.Configured {
 				icon = "○"
 			}
-			row := fmt.Sprintf("%s %-*s  %*s    %*s", icon, providerW, p.Name, skillsW, skillCount, statusW, statusText)
+			row := fmt.Sprintf("%s %-*s  %*s  %*s", icon, providerW, p.Name, skillsW, skillCount, statusW, statusText)
 			b.WriteString(getSelectedRowStyle(w).Render(row))
 		} else {
 			// Non-selected: colored icon and status, right-aligned status column
@@ -238,7 +238,7 @@ func (m statusModel) View() string {
 			} else {
 				statusStyled = statusMutedStyle.Render("not configured")
 			}
-			row := fmt.Sprintf("%s %-*s  %*s    %s", icon, providerW, p.Name, skillsW, skillCount, statusStyled)
+			row := fmt.Sprintf("%s %-*s  %*s  %*s", icon, providerW, p.Name, skillsW, skillCount, statusW, statusStyled)
 			b.WriteString(tableRowStyle.Render(row))
 		}
 		b.WriteString("\n")

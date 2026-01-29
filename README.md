@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev/)
 
-![efx-ai-skills screenshot](https://via.placeholder.com/800x450?text=efx-ai-skills+TUI)
+![efx-ai-skills](public/img/home.png)
 
 ## ✨ Features
 
@@ -180,27 +180,35 @@ Each provider can be individually enabled/disabled in the configuration.
 
 ## 🎨 Screenshots
 
-### Status View
-```
-┌─────────────────────────────────────────────────────────┐
-│  efx-skills v0.1.0                                      │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Provider Status                                        │
-│  ─────────────────────────────────────────────────────  │
-│                                                         │
-│  Provider       Skills    Status                        │
-│  ─────────────────────────────────────────────────────  │
-│  ● claude         28      ✓ synced                      │
-│  ● cursor          0      ✓ synced                      │
-│  ● qoder          28      ✓ synced                      │
-│  ○ windsurf        -      not configured                │
-│                                                         │
-│  Total: 28 skills in ~/.agents/skills/                  │
-│                                                         │
-│  [s] search  [c] configure  [r] refresh  [q] quit      │
-└─────────────────────────────────────────────────────────┘
-```
+### Status View (Home)
+
+The default view shows the status of all configured AI providers, displaying which providers have skills installed and their sync status.
+
+![Status View](public/img/home.png)
+
+### Search Skills
+
+Search for skills across multiple registries (skills.sh and playbooks.com) with an intuitive interface. Navigate results and preview skills directly.
+
+![Search Skills](public/img/search-skills.png)
+
+### Preview Skills
+
+View beautifully rendered markdown documentation for any skill before installing. Supports scrolling through long documentation with vim-style keybindings.
+
+![Preview Skills](public/img/preview-skills.png)
+
+### Manage Provider Skills
+
+Select which skills to enable or disable for specific providers. Toggle individual skills with checkboxes.
+
+![Manage Provider Skills](public/img/manage-provider-skills.png)
+
+### Configuration
+
+Manage custom sources, registries, and provider settings through the configuration interface.
+
+![Configuration](public/img/configuration.png)
 
 ## 🔧 Configuration
 

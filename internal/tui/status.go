@@ -225,10 +225,16 @@ func (m statusModel) View() string {
 			if !p.Configured {
 				icon = "○"
 			}
-			row := fmt.Sprintf("%s %-*s  %*s  %*s", icon, providerW, p.Name, skillsW, skillCount, statusW, statusText)
+			// Calculate padding for right-alignment (same as non-selected)
+			statusTextLen := len(statusText)
+			padding := statusW - statusTextLen
+			if padding < 0 {
+				padding = 0
+			}
+			row := fmt.Sprintf("%s %-*s  %*s  %*s%s", icon, providerW, p.Name, skillsW, skillCount, padding, "", statusText)
 			b.WriteString(getSelectedRowStyle(w).Render(row))
 		} else {
-			// Non-selected: colored icon and status, right-aligned status column
+			// Non-selected: colored icon, right-aligned status
 			icon := renderProviderIcon(p.Configured)
 			var statusStyled string
 			if p.Configured && p.Synced {
@@ -238,7 +244,13 @@ func (m statusModel) View() string {
 			} else {
 				statusStyled = statusMutedStyle.Render("not configured")
 			}
-			row := fmt.Sprintf("%s %-*s  %*s  %*s", icon, providerW, p.Name, skillsW, skillCount, statusW, statusStyled)
+			// Calculate padding for right-alignment
+			statusTextLen := len(statusText) // Use plain text length
+			padding := statusW - statusTextLen
+			if padding < 0 {
+				padding = 0
+			}
+			row := fmt.Sprintf("%s %-*s  %*s  %*s%s", icon, providerW, p.Name, skillsW, skillCount, padding, "", statusStyled)
 			b.WriteString(tableRowStyle.Render(row))
 		}
 		b.WriteString("\n")

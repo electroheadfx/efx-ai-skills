@@ -176,7 +176,7 @@ func (m statusModel) View() string {
 	}
 
 	// Title
-	b.WriteString(titleStyle.Render("efx-skills v0.1.0 - Laurent Marques"))
+	b.WriteString(titleStyle.Render("efx-skills v0.1.1 - Laurent Marques"))
 	b.WriteString("\n")
 
 	if m.loading {

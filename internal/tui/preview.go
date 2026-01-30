@@ -108,6 +108,16 @@ func (m previewModel) Update(msg tea.Msg) (previewModel, tea.Cmd) {
 		if m.content != "" {
 			m.viewport.SetContent(m.content)
 		}
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "g":
+			m.viewport.GotoTop()
+			return m, nil
+		case "G":
+			m.viewport.GotoBottom()
+			return m, nil
+		}
 	}
 
 	// Handle keyboard and mouse events in the viewport
@@ -118,13 +128,13 @@ func (m previewModel) Update(msg tea.Msg) (previewModel, tea.Cmd) {
 }
 
 func (m previewModel) headerView() string {
-	title := titleStyle.Render("efx-skills v0.1.0 - Laurent Marques")
+	title := titleStyle.Render("efx-skills v0.1.1 - Laurent Marques")
 	skillTitle := subtitleStyle.Render(fmt.Sprintf("Preview: %s", m.skillName))
 	return title + "\n" + skillTitle
 }
 
 func (m previewModel) footerView() string {
-	info := helpStyle.Render(fmt.Sprintf("  %3.f%% • [j/k] scroll  [space/b] page  [g/G] top/bottom  [esc] back", m.viewport.ScrollPercent()*100))
+	info := helpStyle.Render(fmt.Sprintf("  %3.f%% • [j/k/↑/↓] scroll  [space/b] page  [g/G] top/bottom  [esc] back", m.viewport.ScrollPercent()*100))
 	return info
 }
 

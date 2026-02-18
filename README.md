@@ -173,7 +173,7 @@ efx-skills --version
 - **GitHub Copilot** (`~/.copilot/skills/`) - GitHub Copilot
 - **Cline** (`~/.cline/skills/`) - Cline VSCode Extension
 - **Roo Code** (`~/.roo-code/skills/`) - Roo Code Extension
-- **OpenCode** (`~/.opencode/skills/`) - OpenCode Assistant
+- **OpenCode** (`~/.config/opencode/skills/`) - OpenCode Assistant
 - **Continue** (`~/.continue/skills/`) - Continue.dev Extension
 
 Each provider can be individually enabled/disabled in the configuration.

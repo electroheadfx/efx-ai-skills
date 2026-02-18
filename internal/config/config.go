@@ -46,7 +46,7 @@ func DefaultConfig() *Config {
 			"qoder":    {Enabled: true, Path: filepath.Join(home, ".qoder", "skills")},
 			"windsurf": {Enabled: false, Path: filepath.Join(home, ".windsurf", "skills")},
 			"copilot":  {Enabled: false, Path: filepath.Join(home, ".copilot", "skills")},
-			"opencode": {Enabled: false, Path: filepath.Join(home, ".opencode", "skills")},
+			"opencode": {Enabled: false, Path: filepath.Join(home, ".config", "opencode", "skills")},
 		},
 	}
 }

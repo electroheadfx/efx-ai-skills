@@ -88,7 +88,7 @@ func detectProviders() []Provider {
 		{"qoder", filepath.Join(home, ".qoder", "skills")},
 		{"windsurf", filepath.Join(home, ".windsurf", "skills")},
 		{"copilot", filepath.Join(home, ".copilot", "skills")},
-		{"opencode", filepath.Join(home, ".opencode", "skills")},
+		{"opencode", filepath.Join(home, ".config", "opencode", "skills")},
 	}
 
 	var providers []Provider
@@ -198,7 +198,7 @@ func (m statusModel) View() string {
 	providerW := 20
 	skillsW := 10
 	statusW := w - providerW - skillsW - 10 // Use remaining width for status
-	
+
 	header := fmt.Sprintf("  %-*s  %*s  %*s", providerW, "Provider", skillsW, "Skills", statusW, "Status")
 	b.WriteString(getTableHeaderStyle(w).Render(header))
 	b.WriteString("\n")
@@ -209,7 +209,7 @@ func (m statusModel) View() string {
 		if p.Configured {
 			skillCount = fmt.Sprintf("%d", p.SkillCount)
 		}
-		
+
 		statusText := "not configured"
 		if p.Configured {
 			if p.Synced {

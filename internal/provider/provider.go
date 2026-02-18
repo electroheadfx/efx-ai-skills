@@ -23,7 +23,7 @@ var KnownProviders = []struct {
 	{"qoder", func(h string) string { return filepath.Join(h, ".qoder", "skills") }},
 	{"windsurf", func(h string) string { return filepath.Join(h, ".windsurf", "skills") }},
 	{"copilot", func(h string) string { return filepath.Join(h, ".copilot", "skills") }},
-	{"opencode", func(h string) string { return filepath.Join(h, ".opencode", "skills") }},
+	{"opencode", func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") }},
 }
 
 // DetectAll detects all providers on the system

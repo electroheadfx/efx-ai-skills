@@ -169,7 +169,7 @@ func (m previewModel) Update(msg tea.Msg) (previewModel, tea.Cmd) {
 }
 
 func (m previewModel) headerView() string {
-	title := titleStyle.Render("efx-skills v0.1.1 - Laurent Marques")
+	title := titleStyle.Render("efx-skills v0.1.2 - Laurent Marques")
 	skillTitle := subtitleStyle.Render(fmt.Sprintf("Preview: %s", m.skillName))
 	return title + "\n" + skillTitle
 }

@@ -2,7 +2,7 @@
 
 BINARY_NAME=efx-skills
 BUILD_DIR=bin
-VERSION=0.1.0
+VERSION=0.1.2
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/efx-skills

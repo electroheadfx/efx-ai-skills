@@ -464,7 +464,7 @@ func (m manageModel) View() string {
 				b.WriteString(getSelectedRowStyle(w).Render(groupLabel))
 			} else {
 				// Use bold purple without margin for consistent spacing
-				b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FBBF24")).Render(groupLabel))
+				b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#10B981")).Render(groupLabel))
 			}
 			b.WriteString("\n")
 		} else {

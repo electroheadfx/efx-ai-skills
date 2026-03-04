@@ -12,6 +12,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// openLocalPreviewWithContentMsg carries pre-read content, no fetch needed
+type openLocalPreviewWithContentMsg struct {
+	skillName string
+	content   string
+}
+
 // SkillEntry represents a skill in the management view
 type SkillEntry struct {
 	Name     string
@@ -22,8 +28,9 @@ type SkillEntry struct {
 
 // SkillGroup represents a group of skills
 type SkillGroup struct {
-	Name   string
-	Skills []int // indices into skills slice
+	Name      string
+	Skills    []int // indices into skills slice
+	Collapsed bool  // whether the group is collapsed
 }
 
 // manageModel handles the provider management view
@@ -50,9 +57,7 @@ type skillsLoadedMsg struct {
 	skills []SkillEntry
 }
 
-type openLocalPreviewMsg struct {
-	skillName string
-}
+
 
 const perPage = 18
 
@@ -134,12 +139,22 @@ func extractGroup(name string) string {
 }
 
 func (m *manageModel) buildDisplayList() {
-	m.displayList = nil
-	m.groups = nil
-
 	if len(m.skills) == 0 {
+		m.displayList = nil
+		m.groups = nil
 		return
 	}
+
+	// Preserve existing collapsed state BEFORE clearing groups
+	oldCollapsed := make(map[string]bool)
+	oldCollapsedSet := false
+	for _, g := range m.groups {
+		oldCollapsed[g.Name] = g.Collapsed
+		oldCollapsedSet = true
+	}
+
+	m.displayList = nil
+	m.groups = nil
 
 	// Group skills
 	groupMap := make(map[string][]int)
@@ -157,10 +172,30 @@ func (m *manageModel) buildDisplayList() {
 	// Build groups and display list
 	for gi, groupName := range groupNames {
 		skillIndices := groupMap[groupName]
-		
+
+		// Determine if any skill in this group is installed (linked)
+		hasInstalled := false
+		for _, idx := range skillIndices {
+			if m.skills[idx].Linked {
+				hasInstalled = true
+				break
+			}
+		}
+
+		// Determine collapsed state
+		collapsed := false
+		if oldCollapsedSet {
+			// Preserve previous collapsed state
+			collapsed = oldCollapsed[groupName]
+		} else {
+			// First build: collapse groups with no installed skills
+			collapsed = !hasInstalled
+		}
+
 		m.groups = append(m.groups, SkillGroup{
-			Name:   groupName,
-			Skills: skillIndices,
+			Name:      groupName,
+			Skills:    skillIndices,
+			Collapsed: collapsed,
 		})
 
 		// Add group header to display list
@@ -170,8 +205,12 @@ func (m *manageModel) buildDisplayList() {
 			groupName: groupName,
 		})
 
-		// Add skills in this group
+		// Add skills based on collapsed state
 		for _, skillIdx := range skillIndices {
+			if collapsed && !m.skills[skillIdx].Selected {
+				// Collapsed: only show selected/installed skills
+				continue
+			}
 			m.displayList = append(m.displayList, displayItem{
 				isGroup:   false,
 				skillIdx:  skillIdx,
@@ -251,17 +290,47 @@ func (m manageModel) Update(msg tea.Msg) (manageModel, tea.Cmd) {
 			m.selectedIdx = len(m.displayList) - 1
 			m.paginator.Page = m.paginator.TotalPages - 1
 		case " ":
-			// Preview selected skill
+			// Preview selected skill - read directly from local disk
 			if len(m.displayList) > 0 && m.selectedIdx < len(m.displayList) {
 				item := m.displayList[m.selectedIdx]
 				if !item.isGroup {
-					skillName := m.skills[item.skillIdx].Name
+					skillName := m.skills[item.skillIdx]
+					home := os.Getenv("HOME")
+					skillPath := filepath.Join(home, ".agents", "skills", skillName.Name, "SKILL.md")
 					return m, func() tea.Msg {
-						return openLocalPreviewMsg{skillName: skillName}
+						data, err := os.ReadFile(skillPath)
+						if err != nil {
+							return openLocalPreviewWithContentMsg{
+								skillName: skillName.Name,
+								content:   fmt.Sprintf("Error reading %s: %v", skillPath, err),
+							}
+						}
+						return openLocalPreviewWithContentMsg{
+							skillName: skillName.Name,
+							content:   string(data),
+						}
 					}
 				}
 			}
 		case "enter":
+			// Collapse/uncollapse group
+			if len(m.displayList) > 0 && m.selectedIdx < len(m.displayList) {
+				item := m.displayList[m.selectedIdx]
+				if item.isGroup {
+					groupName := item.groupName
+					m.groups[item.groupIdx].Collapsed = !m.groups[item.groupIdx].Collapsed
+					m.buildDisplayList()
+					// Keep cursor on the same group header (by name, since indices may shift)
+					for i, d := range m.displayList {
+						if d.isGroup && d.groupName == groupName {
+							m.selectedIdx = i
+							m.paginator.Page = m.selectedIdx / perPage
+							break
+						}
+					}
+				}
+			}
+		case "t":
 			// Toggle selection
 			if len(m.displayList) > 0 && m.selectedIdx < len(m.displayList) {
 				item := m.displayList[m.selectedIdx]
@@ -384,7 +453,12 @@ func (m manageModel) View() string {
 				checkbox = "[-]"
 			}
 
-			groupLabel := fmt.Sprintf("%s %s (%d/%d)", checkbox, item.groupName, groupSelected, len(group.Skills))
+			arrow := "▼"
+			if m.groups[item.groupIdx].Collapsed {
+				arrow = "▶"
+			}
+
+			groupLabel := fmt.Sprintf("%s %s %s (%d/%d)", arrow, checkbox, item.groupName, groupSelected, len(group.Skills))
 			
 			if i == m.selectedIdx {
 				b.WriteString(getSelectedRowStyle(w).Render(groupLabel))
@@ -441,7 +515,7 @@ func (m manageModel) View() string {
 
 	// Help
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  [space] preview  [↵] toggle  [a] all  [n] none  [s] apply/save  [←/→] page  [esc] back"))
+	b.WriteString(helpStyle.Render("  [space] preview  [t] toggle  [↵] collapse/expand  [a] all  [n] none  [s] apply/save  [←/→] page  [esc] back"))
 
 	return b.String()
 }

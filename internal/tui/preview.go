@@ -16,13 +16,14 @@ import (
 
 // previewModel handles the preview view
 type previewModel struct {
-	skillName string
-	content   string
-	viewport  viewport.Model
-	ready     bool
-	loading   bool
-	localOnly bool
-	err       error
+	skillName        string
+	content          string
+	preloadedContent string
+	viewport         viewport.Model
+	ready            bool
+	loading          bool
+	localOnly        bool
+	err              error
 }
 
 // Message types for preview
@@ -32,6 +33,10 @@ type previewContentMsg struct {
 
 type previewErrMsg struct {
 	err error
+}
+
+type openLocalPreviewMsg struct {
+	skillName string
 }
 
 func newPreviewModel(skillName string, width, height int) previewModel {
@@ -64,7 +69,22 @@ func newLocalPreviewModel(skillName string, width, height int) previewModel {
 	return m
 }
 
+// newPreviewModelWithContent creates a preview with pre-loaded content (no fetch)
+func newPreviewModelWithContent(skillName, content string, width, height int) previewModel {
+	m := newPreviewModel(skillName, width, height)
+	m.loading = false
+	m.preloadedContent = content
+	return m
+}
+
 func (m previewModel) Init() tea.Cmd {
+	if m.preloadedContent != "" {
+		// Content already loaded, just render it
+		content := m.preloadedContent
+		return func() tea.Msg {
+			return previewContentMsg{content: content}
+		}
+	}
 	if m.localOnly {
 		return func() tea.Msg {
 			home := os.Getenv("HOME")

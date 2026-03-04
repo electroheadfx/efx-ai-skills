@@ -109,6 +109,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = viewPreview
 		m.previewModel = newLocalPreviewModel(msg.skillName, m.width, m.height)
 		return m, m.previewModel.Init()
+
+	case openLocalPreviewWithContentMsg:
+		m.prevState = m.state
+		m.state = viewPreview
+		m.previewModel = newPreviewModelWithContent(msg.skillName, msg.content, m.width, m.height)
+		return m, m.previewModel.Init()
 	}
 
 	// Delegate to sub-models based on current state

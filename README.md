@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev/)
 
-![efx-ai-skills](public/img/home.png)
+![efx-ai-skills](public/img-v0.1.4/main-menu.png)
 
 ## ✨ Features
 
@@ -180,35 +180,35 @@ Each provider can be individually enabled/disabled in the configuration.
 
 ## 🎨 Screenshots
 
-### Status View (Home)
+### Main Menu (Home)
 
 The default view shows the status of all configured AI providers, displaying which providers have skills installed and their sync status.
 
-![Status View](public/img/home.png)
+![Main Menu](public/img-v0.1.4/main-menu.png)
 
 ### Search Skills
 
 Search for skills across multiple registries (skills.sh and playbooks.com) with an intuitive interface. Navigate results and preview skills directly.
 
-![Search Skills](public/img/search-skills.png)
+![Search Skills](public/img-v0.1.4/search.png)
 
 ### Preview Skills
 
 View beautifully rendered markdown documentation for any skill before installing. Supports scrolling through long documentation with vim-style keybindings.
 
-![Preview Skills](public/img/preview-skills.png)
+![Preview Skills](public/img-v0.1.4/preview.png)
 
 ### Manage Provider Skills
 
 Select which skills to enable or disable for specific providers. Toggle individual skills with checkboxes.
 
-![Manage Provider Skills](public/img/manage-provider-skills.png)
+![Manage Provider Skills](public/img-v0.1.4/skills-manager.png)
 
 ### Configuration
 
 Manage custom sources, registries, and provider settings through the configuration interface.
 
-![Configuration](public/img/configuration.png)
+![Configuration](public/img-v0.1.4/config.png)
 
 ## 🔧 Configuration
 
@@ -256,6 +256,14 @@ Built with:
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 
 ## 📋 Changelog
+
+### v0.1.4
+
+- Fixed skill removal from providers not working for non-symlinked directories
+- Fixed manage view not showing provider-only skills (not in central storage)
+- Fixed config not loading saved state (repos and provider toggles lost on reopen)
+- Fixed provider toggle not reflected in main menu status view
+- Updated screenshots
 
 ### v0.1.3
 

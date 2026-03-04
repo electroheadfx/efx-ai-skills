@@ -106,16 +106,22 @@ func loadSkillsForProvider(provider Provider) []SkillEntry {
 		}
 	}
 
+	// Collect all directory names first for group detection
+	var allNames []string
 	for _, entry := range entries {
 		if entry.IsDir() && entry.Name() != ".DS_Store" {
-			group := extractGroup(entry.Name())
-			skills = append(skills, SkillEntry{
-				Name:     entry.Name(),
-				Group:    group,
-				Linked:   linkedSkills[entry.Name()],
-				Selected: linkedSkills[entry.Name()],
-			})
+			allNames = append(allNames, entry.Name())
 		}
+	}
+
+	for _, name := range allNames {
+		group := extractGroup(name, allNames)
+		skills = append(skills, SkillEntry{
+			Name:     name,
+			Group:    group,
+			Linked:   linkedSkills[name],
+			Selected: linkedSkills[name],
+		})
 	}
 
 	// Sort by group then name
@@ -129,11 +135,16 @@ func loadSkillsForProvider(provider Provider) []SkillEntry {
 	return skills
 }
 
-func extractGroup(name string) string {
-	// Common prefixes to look for
+func extractGroup(name string, allNames []string) string {
 	parts := strings.Split(name, "-")
 	if len(parts) >= 2 {
 		return parts[0]
+	}
+	// No dash: check if this name is a prefix of other skill names (i.e., a group exists)
+	for _, other := range allNames {
+		if other != name && strings.HasPrefix(other, name+"-") {
+			return name
+		}
 	}
 	return "_other"
 }

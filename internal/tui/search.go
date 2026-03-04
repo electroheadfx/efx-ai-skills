@@ -68,7 +68,7 @@ func newSearchModel() searchModel {
 	p := paginator.New()
 	p.Type = paginator.Dots
 	p.PerPage = searchPerPage
-	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Render("● ")
+	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#FBBF24")).Render("● ")
 	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("○ ")
 
 	return searchModel{

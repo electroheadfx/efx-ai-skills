@@ -6,8 +6,9 @@ import (
 
 // Colors
 var (
-	primary   = lipgloss.Color("#7C3AED") // Purple
+	primary   = lipgloss.Color("#FBBF24") // Yellow-Orange
 	secondary = lipgloss.Color("#10B981") // Green
+	accent    = lipgloss.Color("#007AE3") // Blue (selection bg)
 	muted     = lipgloss.Color("#6B7280") // Gray
 	danger    = lipgloss.Color("#EF4444") // Red
 	warning   = lipgloss.Color("#F59E0B") // Yellow
@@ -50,7 +51,7 @@ var (
 	selectedRowStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#7C3AED")).
+				Background(accent).
 				Padding(0, 1).
 				Width(60)
 
@@ -130,7 +131,7 @@ func getSelectedRowStyle(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#FFFFFF")).
-		Background(lipgloss.Color("#7C3AED")).
+		Background(accent).
 		Width(width)
 }
 

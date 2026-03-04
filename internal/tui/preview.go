@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,6 +21,7 @@ type previewModel struct {
 	viewport  viewport.Model
 	ready     bool
 	loading   bool
+	localOnly bool
 	err       error
 }
 
@@ -54,7 +57,25 @@ func newPreviewModel(skillName string, width, height int) previewModel {
 	}
 }
 
+// newLocalPreviewModel creates a preview that reads from local disk only
+func newLocalPreviewModel(skillName string, width, height int) previewModel {
+	m := newPreviewModel(skillName, width, height)
+	m.localOnly = true
+	return m
+}
+
 func (m previewModel) Init() tea.Cmd {
+	if m.localOnly {
+		return func() tea.Msg {
+			home := os.Getenv("HOME")
+			localPath := filepath.Join(home, ".agents", "skills", m.skillName, "SKILL.md")
+			data, err := os.ReadFile(localPath)
+			if err != nil {
+				return previewErrMsg{err: fmt.Errorf("skill file not found: %s", localPath)}
+			}
+			return previewContentMsg{content: string(data)}
+		}
+	}
 	return func() tea.Msg {
 		content, err := fetchSkillContent(m.skillName)
 		if err != nil {
@@ -152,10 +173,16 @@ func (m previewModel) View() string {
 	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
 }
 
-// fetchSkillContent fetches SKILL.md content
+// fetchSkillContent fetches SKILL.md content (local first, then GitHub)
 func fetchSkillContent(skillName string) (string, error) {
-	// Parse the skill name: "source/skillname" format
+	// Try local disk first (~/.agents/skills/{name}/SKILL.md)
 	parts := strings.Split(skillName, "/")
+	localName := parts[len(parts)-1]
+	home := os.Getenv("HOME")
+	localPath := filepath.Join(home, ".agents", "skills", localName, "SKILL.md")
+	if data, err := os.ReadFile(localPath); err == nil {
+		return string(data), nil
+	}
 
 	if len(parts) >= 2 {
 		owner := parts[0]

@@ -50,13 +50,17 @@ type skillsLoadedMsg struct {
 	skills []SkillEntry
 }
 
+type openLocalPreviewMsg struct {
+	skillName string
+}
+
 const perPage = 18
 
 func newManageModel(provider Provider) manageModel {
 	p := paginator.New()
 	p.Type = paginator.Dots
 	p.PerPage = perPage
-	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Render("● ")
+	p.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#FBBF24")).Render("● ")
 	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("○ ")
 
 	return manageModel{
@@ -247,6 +251,17 @@ func (m manageModel) Update(msg tea.Msg) (manageModel, tea.Cmd) {
 			m.selectedIdx = len(m.displayList) - 1
 			m.paginator.Page = m.paginator.TotalPages - 1
 		case " ":
+			// Preview selected skill
+			if len(m.displayList) > 0 && m.selectedIdx < len(m.displayList) {
+				item := m.displayList[m.selectedIdx]
+				if !item.isGroup {
+					skillName := m.skills[item.skillIdx].Name
+					return m, func() tea.Msg {
+						return openLocalPreviewMsg{skillName: skillName}
+					}
+				}
+			}
+		case "enter":
 			// Toggle selection
 			if len(m.displayList) > 0 && m.selectedIdx < len(m.displayList) {
 				item := m.displayList[m.selectedIdx]
@@ -266,16 +281,17 @@ func (m manageModel) Update(msg tea.Msg) (manageModel, tea.Cmd) {
 			for i := range m.skills {
 				m.skills[i].Selected = false
 			}
-		case "enter":
-			// Apply changes
+		case "s":
+			// Apply/save changes
 			return m, func() tea.Msg {
 				applySkillChanges(m.provider, m.skills)
 				return skillsLoadedMsg{skills: loadSkillsForProvider(m.provider)}
 			}
 		}
+		// Don't pass key messages to paginator (we handle pagination manually)
+		return m, nil
 	}
 
-	m.paginator, cmd = m.paginator.Update(msg)
 	return m, cmd
 }
 
@@ -374,7 +390,7 @@ func (m manageModel) View() string {
 				b.WriteString(getSelectedRowStyle(w).Render(groupLabel))
 			} else {
 				// Use bold purple without margin for consistent spacing
-				b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7C3AED")).Render(groupLabel))
+				b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FBBF24")).Render(groupLabel))
 			}
 			b.WriteString("\n")
 		} else {
@@ -425,7 +441,7 @@ func (m manageModel) View() string {
 
 	// Help
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  [space] toggle  [a] all  [n] none  [↵] apply  [←/→] page  [esc] back"))
+	b.WriteString(helpStyle.Render("  [space] preview  [↵] toggle  [a] all  [n] none  [s] apply/save  [←/→] page  [esc] back"))
 
 	return b.String()
 }

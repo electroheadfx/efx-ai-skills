@@ -21,10 +21,11 @@ const (
 
 // Main application model
 type model struct {
-	state  viewState
-	width  int
-	height int
-	err    error
+	state     viewState
+	prevState viewState // track where to return from preview
+	width     int
+	height    int
+	err       error
 
 	// Sub-models
 	statusModel  statusModel
@@ -69,8 +70,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "esc":
 			if m.state == viewPreview {
-				// Return to search view from preview
-				m.state = viewSearch
+				// Return to previous view (search or manage)
+				m.state = m.prevState
 				return m, nil
 			} else if m.state != viewStatus {
 				m.state = viewStatus
@@ -98,8 +99,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.configModel.Init()
 
 	case openPreviewMsg:
+		m.prevState = m.state
 		m.state = viewPreview
 		m.previewModel = newPreviewModel(msg.skill.Source+"/"+msg.skill.Name, m.width, m.height)
+		return m, m.previewModel.Init()
+
+	case openLocalPreviewMsg:
+		m.prevState = m.state
+		m.state = viewPreview
+		m.previewModel = newLocalPreviewModel(msg.skillName, m.width, m.height)
 		return m, m.previewModel.Init()
 	}
 

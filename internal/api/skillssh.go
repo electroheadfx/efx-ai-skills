@@ -13,10 +13,10 @@ type SkillsShResponse struct {
 
 // SkillsShSkill represents a skill from skills.sh
 type SkillsShSkill struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Installs  int    `json:"installs"`
-	TopSource string `json:"topSource"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Installs int    `json:"installs"`
+	Source   string `json:"source"`
 }
 
 // SearchSkillsSh searches skills.sh API
@@ -43,7 +43,7 @@ func SearchSkillsSh(query string, limit int) ([]Skill, error) {
 		skills = append(skills, Skill{
 			ID:       s.ID,
 			Name:     s.Name,
-			Source:   s.TopSource,
+			Source:   s.Source,
 			Installs: s.Installs,
 			Registry: "skills.sh",
 		})
@@ -75,7 +75,7 @@ func GetSkillsShTrending(limit int) ([]Skill, error) {
 		skills = append(skills, Skill{
 			ID:       s.ID,
 			Name:     s.Name,
-			Source:   s.TopSource,
+			Source:   s.Source,
 			Installs: s.Installs,
 			Registry: "skills.sh",
 		})

@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarques/efx-skills/internal/api"
+	"github.com/lmarques/efx-skills/internal/skill"
 )
 
 // Skill is an alias for api.Skill
@@ -23,10 +24,12 @@ type searchModel struct {
 	selectedIdx int
 	width       int
 	paginator   paginator.Model
-	loading     bool
-	searched    bool
-	err         error
+	loading      bool
+	searched     bool
+	err          error
 	focusOnInput bool // true = focus on input, false = focus on results
+	installing   bool
+	installMsg   string // success/error feedback shown briefly
 }
 
 // Message types for search
@@ -40,6 +43,19 @@ type searchErrMsg struct {
 
 type openPreviewMsg struct {
 	skill Skill
+}
+
+type installStartMsg struct {
+	skill Skill
+}
+
+type installDoneMsg struct {
+	skillName string
+	providers []string
+}
+
+type installErrMsg struct {
+	err error
 }
 
 func newSearchModel() searchModel {
@@ -86,6 +102,45 @@ func (m searchModel) Update(msg tea.Msg) (searchModel, tea.Cmd) {
 	case searchErrMsg:
 		m.loading = false
 		m.err = msg.err
+
+	case installStartMsg:
+		s := msg.skill
+		return m, func() tea.Msg {
+			store := skill.NewStore()
+
+			// Install to central storage
+			if err := store.Install(s.Source, s.Name); err != nil {
+				return installErrMsg{err: err}
+			}
+
+			// Update lock file
+			_ = store.AddToLock(s.Name, s.Source)
+
+			// Link to all configured providers
+			providers := detectProviders()
+			var linked []string
+			for _, p := range providers {
+				if p.Configured {
+					if err := store.LinkToProvider(s.Name, p.Path); err == nil {
+						linked = append(linked, p.Name)
+					}
+				}
+			}
+
+			return installDoneMsg{skillName: s.Name, providers: linked}
+		}
+
+	case installDoneMsg:
+		m.installing = false
+		if len(msg.providers) > 0 {
+			m.installMsg = fmt.Sprintf("✓ Installed %s → %s", msg.skillName, strings.Join(msg.providers, ", "))
+		} else {
+			m.installMsg = fmt.Sprintf("✓ Installed %s (no providers linked)", msg.skillName)
+		}
+
+	case installErrMsg:
+		m.installing = false
+		m.installMsg = fmt.Sprintf("✗ Install failed: %v", msg.err)
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -147,8 +202,13 @@ func (m searchModel) Update(msg tea.Msg) (searchModel, tea.Cmd) {
 			}
 		case "i":
 			// Install selected skill (only when focus is on results)
-			if !m.focusOnInput && len(m.results) > 0 {
-				// TODO: Trigger install
+			if !m.focusOnInput && len(m.results) > 0 && !m.installing {
+				selected := m.results[m.selectedIdx]
+				m.installing = true
+				m.installMsg = ""
+				return m, func() tea.Msg {
+					return installStartMsg{skill: selected}
+				}
 			}
 		case "p":
 			// Preview selected skill with 'p' key (only when focus is on results)
@@ -259,6 +319,19 @@ func (m searchModel) View() string {
 			b.WriteString("    ")
 			b.WriteString(m.paginator.View())
 			b.WriteString("\n")
+		}
+	}
+
+	// Install status
+	if m.installing {
+		b.WriteString("\n")
+		b.WriteString(spinnerStyle.Render("  Installing..."))
+	} else if m.installMsg != "" {
+		b.WriteString("\n")
+		if strings.HasPrefix(m.installMsg, "✓") {
+			b.WriteString(statusOkStyle.Render("  " + m.installMsg))
+		} else {
+			b.WriteString(errorStyle.Render("  " + m.installMsg))
 		}
 	}
 

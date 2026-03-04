@@ -46,10 +46,12 @@ func (s *Store) installViaSkills(source, skillName string) error {
 	}
 
 	cmd := exec.Command("npx", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
+	// Capture output silently to avoid breaking the TUI
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, string(output))
+	}
+	return nil
 }
 
 // installDirect downloads skill directly from GitHub

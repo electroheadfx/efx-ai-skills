@@ -243,7 +243,7 @@ func (m searchModel) View() string {
 	sourceWidth := availableWidth * 55 / 100 // 55% for source
 
 	// Title
-	b.WriteString(titleStyle.Render("efx-skills v0.1.2 - Laurent Marques"))
+	b.WriteString(titleStyle.Render("efx-skills v0.1.3 - Laurent Marques"))
 	b.WriteString("\n\n")
 
 	// Section: Search Skills

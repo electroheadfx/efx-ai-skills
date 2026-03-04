@@ -255,6 +255,20 @@ Built with:
 - [Lipgloss](https://github.com/charmbracelet/lipgloss) - Styling
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 
+## 📋 Changelog
+
+### v0.1.3
+
+- Fixed slow markdown preview rendering by replacing `glamour.WithAutoStyle()` with `glamour.WithStandardStyle("dracula")`
+
+### v0.1.2
+
+- Cleaned old folder/files
+- Grouped cmux skill to cmux folder
+- Modified theme for folder skills
+- Added collapsed skills folder
+- Changed provider shortcut, added skill preview, changed theme
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

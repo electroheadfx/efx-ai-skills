@@ -120,7 +120,7 @@ func (m previewModel) Update(msg tea.Msg) (previewModel, tea.Cmd) {
 			width = 80
 		}
 		renderer, err := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
+			glamour.WithStandardStyle("dracula"),
 			glamour.WithWordWrap(width-4),
 		)
 		if err == nil {
@@ -169,7 +169,7 @@ func (m previewModel) Update(msg tea.Msg) (previewModel, tea.Cmd) {
 }
 
 func (m previewModel) headerView() string {
-	title := titleStyle.Render("efx-skills v0.1.2 - Laurent Marques")
+	title := titleStyle.Render("efx-skills v0.1.3 - Laurent Marques")
 	skillTitle := subtitleStyle.Render(fmt.Sprintf("Preview: %s", m.skillName))
 	return title + "\n" + skillTitle
 }

@@ -107,10 +107,19 @@ func loadSkillsForProvider(provider Provider) []SkillEntry {
 	}
 
 	// Collect all directory names first for group detection
+	centralNames := make(map[string]bool)
 	var allNames []string
 	for _, entry := range entries {
 		if entry.IsDir() && entry.Name() != ".DS_Store" {
 			allNames = append(allNames, entry.Name())
+			centralNames[entry.Name()] = true
+		}
+	}
+
+	// Also include provider-only skills (not in central storage)
+	for name := range linkedSkills {
+		if !centralNames[name] {
+			allNames = append(allNames, name)
 		}
 	}
 
@@ -391,7 +400,7 @@ func applySkillChanges(provider Provider, skills []SkillEntry) {
 		if skill.Selected && !skill.Linked {
 			os.Symlink(relPath, linkPath)
 		} else if !skill.Selected && skill.Linked {
-			os.Remove(linkPath)
+			os.RemoveAll(linkPath)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -79,6 +80,21 @@ func loadProviders() tea.Msg {
 func detectProviders() []Provider {
 	home := os.Getenv("HOME")
 
+	// Load config to get enabled provider state
+	configFile := filepath.Join(home, ".config", "efx-skills", "config.json")
+	var enabledSet map[string]bool
+	if data, err := os.ReadFile(configFile); err == nil {
+		var raw struct {
+			Providers []string `json:"enabled_providers"`
+		}
+		if json.Unmarshal(data, &raw) == nil && raw.Providers != nil {
+			enabledSet = make(map[string]bool)
+			for _, name := range raw.Providers {
+				enabledSet[name] = true
+			}
+		}
+	}
+
 	providerDefs := []struct {
 		name string
 		path string
@@ -99,11 +115,22 @@ func detectProviders() []Provider {
 			Path: pd.path,
 		}
 
-		// Check if directory exists
+		// Check if directory exists on disk
+		dirExists := false
 		if info, err := os.Stat(pd.path); err == nil && info.IsDir() {
-			p.Configured = true
+			dirExists = true
+		}
 
-			// Count skills (symlinks)
+		if enabledSet != nil {
+			// Config exists with enabled_providers: use config state
+			p.Configured = enabledSet[pd.name]
+		} else {
+			// No config: fall back to directory existence
+			p.Configured = dirExists
+		}
+
+		// Count skills if directory exists and provider is configured
+		if dirExists && p.Configured {
 			if entries, err := os.ReadDir(pd.path); err == nil {
 				for _, e := range entries {
 					if e.Name() != ".DS_Store" {
@@ -111,7 +138,7 @@ func detectProviders() []Provider {
 					}
 				}
 			}
-			p.Synced = true // Assume synced for now
+			p.Synced = true
 		}
 
 		providers = append(providers, p)
@@ -176,7 +203,7 @@ func (m statusModel) View() string {
 	}
 
 	// Title
-	b.WriteString(titleStyle.Render("efx-skills v0.1.3 - Laurent Marques"))
+	b.WriteString(titleStyle.Render("efx-skills v0.1.4 - Laurent Marques"))
 	b.WriteString("\n")
 
 	if m.loading {

@@ -47,24 +47,64 @@ type configModel struct {
 
 type configSavedMsg struct{}
 
+func loadConfigFromFile() *ConfigData {
+	home := os.Getenv("HOME")
+	configFile := filepath.Join(home, ".config", "efx-skills", "config.json")
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil
+	}
+
+	var cfg ConfigData
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+
+	return &cfg
+}
+
+func defaultRegistries() []Registry {
+	return []Registry{
+		{Name: "skills.sh", URL: "https://skills.sh/api/search", Enabled: true},
+		{Name: "playbooks.com", URL: "https://playbooks.com/api/skills", Enabled: true},
+	}
+}
+
+func defaultRepos() []RepoSource {
+	return []RepoSource{
+		{Owner: "yoanbernabeu", Repo: "grepai-skills"},
+		{Owner: "better-auth", Repo: "skills"},
+		{Owner: "awni", Repo: "mlx-skills"},
+	}
+}
+
 func newConfigModel() configModel {
 	ti := textinput.New()
 	ti.Placeholder = "owner/repo"
 	ti.CharLimit = 100
 	ti.Width = 40
 
+	// Load existing config from file
+	cfg := loadConfigFromFile()
+
+	registries := defaultRegistries()
+	repos := defaultRepos()
+
+	if cfg != nil {
+		if len(cfg.Registries) > 0 {
+			registries = cfg.Registries
+		}
+		if cfg.Repos != nil {
+			repos = cfg.Repos
+		}
+	}
+
 	return configModel{
-		registries: []Registry{
-			{Name: "skills.sh", URL: "https://skills.sh/api/search", Enabled: true},
-			{Name: "playbooks.com", URL: "https://playbooks.com/api/skills", Enabled: true},
-		},
-		repos: []RepoSource{
-			{Owner: "yoanbernabeu", Repo: "grepai-skills"},
-			{Owner: "better-auth", Repo: "skills"},
-			{Owner: "awni", Repo: "mlx-skills"},
-		},
-		providers: detectProviders(),
-		textInput: ti,
+		registries: registries,
+		repos:      repos,
+		providers:  detectProviders(), // detectProviders already respects config enabled state
+		textInput:  ti,
 	}
 }
 

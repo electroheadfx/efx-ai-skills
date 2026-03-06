@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -106,15 +107,30 @@ func (m searchModel) Update(msg tea.Msg) (searchModel, tea.Cmd) {
 	case installStartMsg:
 		s := msg.skill
 		return m, func() tea.Msg {
-			store := skill.NewStore()
+			cfg := loadConfigFromFile()
+			skillsPath := ""
+			if cfg != nil {
+				skillsPath = cfg.SkillsPath
+			}
+			store := skill.NewStore(skillsPath)
 
 			// Install to central storage
 			if err := store.Install(s.Source, s.Name); err != nil {
 				return installErrMsg{err: err}
 			}
 
-			// Update lock file
-			_ = store.AddToLock(s.Name, s.Source)
+			// Fetch commit hash and update lock file
+			commitHash := ""
+			if parts := strings.Split(s.Source, "/"); len(parts) >= 2 {
+				commitHash, _ = skill.FetchLatestCommitHash(parts[0], parts[1])
+			}
+			_ = store.AddToLock(s.Name, s.Source, commitHash)
+
+			// Write skill metadata to config (with version and timestamp)
+			meta := skillMetaFromAPISkill(s)
+			meta.Version = commitHash
+			meta.Installed = time.Now().UTC().Format(time.RFC3339)
+			_ = addSkillToConfig(meta)
 
 			// Link to all configured providers
 			providers := detectProviders()
@@ -217,6 +233,14 @@ func (m searchModel) Update(msg tea.Msg) (searchModel, tea.Cmd) {
 					return openPreviewMsg{skill: m.results[m.selectedIdx]}
 				}
 			}
+		case "o":
+			// Open selected skill URL in browser (only when focus is on results)
+			if !m.focusOnInput && len(m.results) > 0 {
+				selected := m.results[m.selectedIdx]
+				if url := urlForAPISkill(selected); url != "" {
+					openInBrowser(url)
+				}
+			}
 		}
 	}
 
@@ -237,14 +261,15 @@ func (m searchModel) View() string {
 	}
 
 	// Calculate column widths dynamically
-	// Reserve: 8 for count, rest split between name and source
+	// Reserve: 8 for popularity, rest split between name, source, registry
 	availableWidth := w - 8
-	nameWidth := availableWidth * 35 / 100  // 35% for name
-	sourceWidth := availableWidth * 55 / 100 // 55% for source
+	nameWidth := availableWidth * 28 / 100     // 28% for name
+	sourceWidth := availableWidth * 40 / 100   // 40% for source
+	registryWidth := availableWidth * 22 / 100 // 22% for registry
 
 	// Title
-	b.WriteString(titleStyle.Render("efx-skills v0.1.3 - Laurent Marques"))
-	b.WriteString("\n\n")
+	b.WriteString(renderTitleBox("Search Skills"))
+	b.WriteString("\n")
 
 	// Section: Search Skills
 	b.WriteString(subtitleStyle.Render("Search Skills"))
@@ -296,13 +321,18 @@ func (m searchModel) View() string {
 				popularity = fmt.Sprintf("%d*", skill.Stars)
 			}
 
+			// Registry friendly name
+			registry := registryDisplayName(skill.Registry)
+
 			// Use dynamic column widths
 			nameFmt := fmt.Sprintf("%%-%ds", nameWidth)
 			sourceFmt := fmt.Sprintf("%%-%ds", sourceWidth)
-			
-			line := fmt.Sprintf(nameFmt+" "+sourceFmt+" %6s",
+			registryFmt := fmt.Sprintf("%%-%ds", registryWidth)
+
+			line := fmt.Sprintf(nameFmt+" "+sourceFmt+" "+registryFmt+" %6s",
 				truncate(skill.Name, nameWidth),
 				truncate(skill.Source, sourceWidth),
+				truncate(registry, registryWidth),
 				popularity)
 
 			if i == m.selectedIdx {
@@ -336,13 +366,12 @@ func (m searchModel) View() string {
 	}
 
 	// Help
-	b.WriteString("\n")
 	if m.focusOnInput {
-		b.WriteString(helpStyle.Render("  [↵] search  [tab] focus results  [esc] back  [q] quit"))
+		b.WriteString(renderHelpBar(m.width, []string{"[enter] search", "[tab] focus results", "[esc] back", "[q] quit"}))
 	} else if len(m.results) > 0 {
-		b.WriteString(helpStyle.Render("  [i] install  [p/↵] preview  [↑/↓] navigate  [←/→] page  [tab] focus input  [esc] back  [q] quit"))
+		b.WriteString(renderHelpBar(m.width, []string{"[i] install", "[o] open", "[p/enter] preview", "[up/down] navigate", "[<-/->] page", "[tab] focus input", "[esc] back", "[q] quit"}))
 	} else {
-		b.WriteString(helpStyle.Render("  [↵] search  [i] install  [p] preview  [←/→] page  [esc] back  [q] quit"))
+		b.WriteString(renderHelpBar(m.width, []string{"[enter] search", "[i] install", "[p] preview", "[<-/->] page", "[esc] back", "[q] quit"}))
 	}
 
 	return b.String()

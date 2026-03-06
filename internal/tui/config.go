@@ -9,6 +9,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/lmarques/efx-skills/internal/api"
 )
 
 // Registry represents a skill registry
@@ -22,6 +24,22 @@ type Registry struct {
 type RepoSource struct {
 	Owner string `json:"owner"`
 	Repo  string `json:"repo"`
+	URL   string `json:"url"`
+}
+
+// DeriveURL returns the GitHub URL for this repo, derived from owner/repo.
+func (r RepoSource) DeriveURL() string {
+	return fmt.Sprintf("https://github.com/%s/%s", r.Owner, r.Repo)
+}
+
+// SkillMeta represents per-skill provenance metadata stored in config.
+type SkillMeta struct {
+	Owner     string `json:"owner"`
+	Name      string `json:"name"`
+	Registry  string `json:"registry"`
+	URL       string `json:"url"`
+	Version   string `json:"version,omitempty"`
+	Installed string `json:"installed,omitempty"`
 }
 
 // ConfigData represents the persistent configuration
@@ -29,6 +47,8 @@ type ConfigData struct {
 	Registries []Registry   `json:"registries"`
 	Repos      []RepoSource `json:"repos"`
 	Providers  []string     `json:"enabled_providers"`
+	SkillsPath string       `json:"skills-path"`
+	Skills     []SkillMeta  `json:"skills"`
 }
 
 // configModel handles the config view
@@ -36,6 +56,8 @@ type configModel struct {
 	registries  []Registry
 	repos       []RepoSource
 	providers   []Provider
+	skills      []SkillMeta
+	skillsPath  string
 	section     int // 0=registries, 1=repos, 2=providers
 	selectedIdx int
 	width       int
@@ -45,7 +67,26 @@ type configModel struct {
 	err         error
 }
 
+// registryDisplayName returns a friendly label for a registry.
+// Falls back to the raw Name if no mapping exists.
+func registryDisplayName(name string) string {
+	switch name {
+	case "":
+		return "Custom"
+	case "skills.sh":
+		return "Vercel"
+	case "playbooks.com":
+		return "Playbooks"
+	default:
+		return name
+	}
+}
+
 type configSavedMsg struct{}
+
+func defaultSkillsPath() string {
+	return filepath.Join(os.Getenv("HOME"), ".agents", "skills")
+}
 
 func loadConfigFromFile() *ConfigData {
 	home := os.Getenv("HOME")
@@ -59,6 +100,19 @@ func loadConfigFromFile() *ConfigData {
 	var cfg ConfigData
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil
+	}
+
+	// Apply defaults for new fields
+	if cfg.SkillsPath == "" {
+		cfg.SkillsPath = defaultSkillsPath()
+	}
+	if cfg.Skills == nil {
+		cfg.Skills = []SkillMeta{}
+	}
+	for i := range cfg.Repos {
+		if cfg.Repos[i].URL == "" {
+			cfg.Repos[i].URL = cfg.Repos[i].DeriveURL()
+		}
 	}
 
 	return &cfg
@@ -90,6 +144,8 @@ func newConfigModel() configModel {
 
 	registries := defaultRegistries()
 	repos := defaultRepos()
+	skills := []SkillMeta{}
+	skillsPath := defaultSkillsPath()
 
 	if cfg != nil {
 		if len(cfg.Registries) > 0 {
@@ -98,12 +154,20 @@ func newConfigModel() configModel {
 		if cfg.Repos != nil {
 			repos = cfg.Repos
 		}
+		if cfg.Skills != nil {
+			skills = cfg.Skills
+		}
+		if cfg.SkillsPath != "" {
+			skillsPath = cfg.SkillsPath
+		}
 	}
 
 	return configModel{
 		registries: registries,
 		repos:      repos,
 		providers:  detectProviders(), // detectProviders already respects config enabled state
+		skills:     skills,
+		skillsPath: skillsPath,
 		textInput:  ti,
 	}
 }
@@ -171,8 +235,8 @@ func (m configModel) Update(msg tea.Msg) (configModel, tea.Cmd) {
 				m.textInput.Focus()
 				return m, textinput.Blink
 			}
-		case "d":
-			// Delete (for repos)
+		case "d", "r":
+			// Delete/remove repo (only in repos section)
 			if m.section == 1 && len(m.repos) > 0 {
 				m.repos = append(m.repos[:m.selectedIdx], m.repos[m.selectedIdx+1:]...)
 				if m.selectedIdx >= len(m.repos) && m.selectedIdx > 0 {
@@ -183,6 +247,25 @@ func (m configModel) Update(msg tea.Msg) (configModel, tea.Cmd) {
 		case "s":
 			// Save config
 			return m, m.saveConfig
+		case "o":
+			// Open registry or repo URL in browser
+			switch m.section {
+			case 0: // Registries
+				if len(m.registries) > m.selectedIdx {
+					reg := m.registries[m.selectedIdx]
+					if url := registryBaseURL(reg.Name); url != "" {
+						openInBrowser(url)
+					}
+				}
+			case 1: // Repos
+				if len(m.repos) > m.selectedIdx {
+					repo := m.repos[m.selectedIdx]
+					url := repo.DeriveURL()
+					if url != "" {
+						openInBrowser(url)
+					}
+				}
+			}
 		}
 	}
 
@@ -238,10 +321,32 @@ func (m configModel) saveConfig() tea.Msg {
 		}
 	}
 
+	// Derive URL for any repos missing it
+	repos := make([]RepoSource, len(m.repos))
+	copy(repos, m.repos)
+	for i := range repos {
+		if repos[i].URL == "" {
+			repos[i].URL = repos[i].DeriveURL()
+		}
+	}
+
+	// Ensure skills is an empty slice, not nil
+	skills := m.skills
+	if skills == nil {
+		skills = []SkillMeta{}
+	}
+
+	skillsPath := m.skillsPath
+	if skillsPath == "" {
+		skillsPath = defaultSkillsPath()
+	}
+
 	data := ConfigData{
 		Registries: m.registries,
-		Repos:      m.repos,
+		Repos:      repos,
 		Providers:  enabledProviders,
+		SkillsPath: skillsPath,
+		Skills:     skills,
 	}
 
 	jsonData, err := json.MarshalIndent(data, "", "  ")
@@ -270,78 +375,104 @@ func (m configModel) View() string {
 	if m.dirty {
 		title += " *"
 	}
-	b.WriteString(titleStyle.Render(title))
+	b.WriteString(renderTitleBox(title))
 	b.WriteString("\n")
 
-	// Registries section
-	b.WriteString("\n")
-	if m.section == 0 {
-		b.WriteString(selectedStyle.Render("Registries"))
-	} else {
-		b.WriteString(subtitleStyle.Render("Registries"))
+	// Section box width (account for border chars: 2 per side + 1 padding each side)
+	sectionW := w - 4
+	if sectionW < 20 {
+		sectionW = 20
 	}
-	b.WriteString("\n")
+
+	// Registries section
+	var regContent strings.Builder
+	if m.section == 0 {
+		regContent.WriteString(selectedStyle.Render("Registries"))
+	} else {
+		regContent.WriteString(subtitleStyle.Render("Registries"))
+	}
+	regContent.WriteString("\n")
+
+	boldURLStyle := lipgloss.NewStyle().Bold(true)
 
 	for i, reg := range m.registries {
 		checkbox := "[ ]"
 		if reg.Enabled {
 			checkbox = "[x]"
 		}
-		// Dynamic column widths
 		nameWidth := 18
-		urlWidth := w - nameWidth - 8
-		line := fmt.Sprintf("%s %-*s %s", checkbox, nameWidth, reg.Name, reg.URL)
+		urlWidth := sectionW - nameWidth - 8
+		displayName := registryDisplayName(reg.Name)
 
 		if m.section == 0 && i == m.selectedIdx {
-			b.WriteString(getSelectedRowStyle(w).Render(line))
+			line := fmt.Sprintf("%s %-*s %s", checkbox, nameWidth, displayName, truncateStr(reg.URL, urlWidth))
+			regContent.WriteString(getSelectedRowStyle(sectionW).Render(line))
 		} else {
-			line = fmt.Sprintf("%s %-*s %s", checkbox, nameWidth, reg.Name, statusMutedStyle.Render(truncateStr(reg.URL, urlWidth)))
-			b.WriteString(tableRowStyle.Render(line))
+			line := fmt.Sprintf("%s %-*s %s", checkbox, nameWidth, displayName, boldURLStyle.Render(truncateStr(reg.URL, urlWidth)))
+			regContent.WriteString(tableRowStyle.Render(line))
 		}
-		b.WriteString("\n")
+		regContent.WriteString("\n")
 	}
+
+	if m.section == 0 {
+		b.WriteString(configSectionActiveStyle.Width(sectionW).Render(regContent.String()))
+	} else {
+		b.WriteString(configSectionStyle.Width(sectionW).Render(regContent.String()))
+	}
+	b.WriteString("\n")
 
 	// Repos section
-	b.WriteString("\n")
+	var reposContent strings.Builder
 	if m.section == 1 {
-		b.WriteString(selectedStyle.Render("Custom GitHub Repos"))
+		reposContent.WriteString(selectedStyle.Render("Custom GitHub Repos"))
 	} else {
-		b.WriteString(subtitleStyle.Render("Custom GitHub Repos"))
+		reposContent.WriteString(subtitleStyle.Render("Custom GitHub Repos"))
 	}
-	b.WriteString("\n")
+	reposContent.WriteString("\n")
 
+	ownerWidth := 16
 	for i, repo := range m.repos {
-		repoName := fmt.Sprintf("%s/%s", repo.Owner, repo.Repo)
-		line := fmt.Sprintf("  %s", repoName)
+		line := fmt.Sprintf("  %-*s %s", ownerWidth, repo.Owner, repo.Repo)
 
 		if m.section == 1 && i == m.selectedIdx {
-			b.WriteString(getSelectedRowStyle(w).Render(line))
+			reposContent.WriteString(getSelectedRowStyle(sectionW).Render(line))
 		} else {
-			b.WriteString(tableRowStyle.Render(line))
+			reposContent.WriteString(tableRowStyle.Render(line))
 		}
-		b.WriteString("\n")
+		reposContent.WriteString("\n")
 	}
 
 	// Show add repo input or hint
 	if m.addingRepo {
-		b.WriteString(fmt.Sprintf("  Add: %s\n", m.textInput.View()))
+		reposContent.WriteString(fmt.Sprintf("  Add: %s\n", m.textInput.View()))
 	} else if m.section == 1 {
-		b.WriteString(statusMutedStyle.Render("  [a] add repo"))
-		b.WriteString("\n")
+		hints := "  [a] add repo"
+		if len(m.repos) > 0 {
+			hints += "  [r] remove repo"
+		}
+		reposContent.WriteString(statusMutedStyle.Render(hints))
+		reposContent.WriteString("\n")
 	}
 
-	// Providers section
-	b.WriteString("\n")
-	if m.section == 2 {
-		b.WriteString(selectedStyle.Render("Providers"))
+	if m.section == 1 {
+		b.WriteString(configSectionActiveStyle.Width(sectionW).Render(reposContent.String()))
 	} else {
-		b.WriteString(subtitleStyle.Render("Providers"))
+		b.WriteString(configSectionStyle.Width(sectionW).Render(reposContent.String()))
 	}
 	b.WriteString("\n")
+
+	// Providers section
+	var provContent strings.Builder
+	if m.section == 2 {
+		provContent.WriteString(selectedStyle.Render("Providers search"))
+	} else {
+		provContent.WriteString(subtitleStyle.Render("Providers search"))
+	}
+	provContent.WriteString("\n")
 
 	// Dynamic column widths for providers
 	providerNameWidth := 14
-	pathWidth := w - providerNameWidth - 8
+	pathWidth := sectionW - providerNameWidth - 8
 
 	for i, p := range m.providers {
 		checkbox := "[ ]"
@@ -351,21 +482,26 @@ func (m configModel) View() string {
 		line := fmt.Sprintf("%s %-*s %s", checkbox, providerNameWidth, p.Name, p.Path)
 
 		if m.section == 2 && i == m.selectedIdx {
-			b.WriteString(getSelectedRowStyle(w).Render(line))
+			provContent.WriteString(getSelectedRowStyle(sectionW).Render(line))
 		} else {
 			line = fmt.Sprintf("%s %-*s %s", checkbox, providerNameWidth, p.Name, statusMutedStyle.Render(truncateStr(p.Path, pathWidth)))
-			b.WriteString(tableRowStyle.Render(line))
+			provContent.WriteString(tableRowStyle.Render(line))
 		}
-		b.WriteString("\n")
+		provContent.WriteString("\n")
+	}
+
+	if m.section == 2 {
+		b.WriteString(configSectionActiveStyle.Width(sectionW).Render(provContent.String()))
+	} else {
+		b.WriteString(configSectionStyle.Width(sectionW).Render(provContent.String()))
 	}
 
 	// Help
-	b.WriteString("\n")
-	helpText := "[tab] section  [space] toggle  [s] save  [esc] back  [q] quit"
+	helpItems := []string{"[tab] section", "[space] toggle", "[o] open", "[s] save", "[esc] back", "[q] quit"}
 	if m.section == 1 {
-		helpText = "[tab] section  [a] add  [d] delete  [s] save  [esc] back  [q] quit"
+		helpItems = []string{"[tab] section", "[o] open", "[s] save", "[esc] back", "[q] quit"}
 	}
-	b.WriteString(helpStyle.Render("  " + helpText))
+	b.WriteString(renderHelpBar(m.width, helpItems))
 
 	return b.String()
 }
@@ -378,4 +514,92 @@ func truncateStr(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// saveConfigData writes a ConfigData to ~/.config/efx-skills/config.json.
+// It creates the config directory if it does not exist, ensures Skills is []
+// not null in the output JSON, and defaults SkillsPath if empty.
+func saveConfigData(cfg *ConfigData) error {
+	home := os.Getenv("HOME")
+	configDir := filepath.Join(home, ".config", "efx-skills")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("creating config directory: %w", err)
+	}
+
+	// Ensure Skills is empty slice, not nil
+	if cfg.Skills == nil {
+		cfg.Skills = []SkillMeta{}
+	}
+
+	// Default SkillsPath if empty
+	if cfg.SkillsPath == "" {
+		cfg.SkillsPath = defaultSkillsPath()
+	}
+
+	jsonData, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
+	}
+
+	configFile := filepath.Join(configDir, "config.json")
+	if err := os.WriteFile(configFile, jsonData, 0644); err != nil {
+		return fmt.Errorf("writing config file: %w", err)
+	}
+
+	return nil
+}
+
+// addSkillToConfig appends a SkillMeta to the config.json skills array.
+// It is idempotent: duplicate entries (same Owner AND Name) are not added.
+// If no config file exists, a new one is created with defaults.
+func addSkillToConfig(meta SkillMeta) error {
+	cfg := loadConfigFromFile()
+	if cfg == nil {
+		cfg = &ConfigData{
+			Registries: defaultRegistries(),
+			Repos:      defaultRepos(),
+			SkillsPath: defaultSkillsPath(),
+			Skills:     []SkillMeta{},
+		}
+	}
+
+	// Check for duplicate by Owner+Name
+	for _, existing := range cfg.Skills {
+		if existing.Owner == meta.Owner && existing.Name == meta.Name {
+			return nil // already tracked, idempotent
+		}
+	}
+
+	cfg.Skills = append(cfg.Skills, meta)
+	return saveConfigData(cfg)
+}
+
+// removeSkillFromConfig removes a SkillMeta entry from config.json by skill name.
+// If no config file exists or the skill is not tracked, it is a no-op (returns nil).
+func removeSkillFromConfig(skillName string) error {
+	cfg := loadConfigFromFile()
+	if cfg == nil {
+		return nil
+	}
+
+	filtered := make([]SkillMeta, 0, len(cfg.Skills))
+	for _, s := range cfg.Skills {
+		if s.Name != skillName {
+			filtered = append(filtered, s)
+		}
+	}
+	cfg.Skills = filtered
+
+	return saveConfigData(cfg)
+}
+
+// skillMetaFromAPISkill constructs a SkillMeta from an api.Skill.
+// Maps: Owner=Source, Name=Name, Registry=Registry, URL=https://github.com/{Source}.
+func skillMetaFromAPISkill(s api.Skill) SkillMeta {
+	return SkillMeta{
+		Owner:    s.Source,
+		Name:     s.Name,
+		Registry: s.Registry,
+		URL:      fmt.Sprintf("https://github.com/%s", s.Source),
+	}
 }

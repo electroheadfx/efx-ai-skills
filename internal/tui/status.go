@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Provider represents an AI coding agent provider
@@ -203,7 +204,9 @@ func (m statusModel) View() string {
 	}
 
 	// Title
-	b.WriteString(titleStyle.Render("efx-skills v0.1.4 - Laurent Marques"))
+	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(primary).Render(asciiLogo))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Render("v0.2.0 - Laurent Marques"))
 	b.WriteString("\n")
 
 	if m.loading {
@@ -288,11 +291,10 @@ func (m statusModel) View() string {
 	b.WriteString(fmt.Sprintf("  Total: %d skills in ~/.agents/skills/\n", m.totalSkills))
 
 	// Help - show context-aware help
-	b.WriteString("\n")
 	if len(m.providers) > 0 && m.providers[m.selectedIdx].Configured {
-		b.WriteString(helpStyle.Render("  [s] search  [m/↵] manage  [c] config  [r] refresh  [q] quit"))
+		b.WriteString(renderHelpBar(m.width, []string{"[s] search", "[m/enter] manage", "[c] config", "[r] refresh", "[q] quit"}))
 	} else {
-		b.WriteString(helpStyle.Render("  [s] search  [c] configure  [r] refresh  [q] quit"))
+		b.WriteString(renderHelpBar(m.width, []string{"[s] search", "[c] configure", "[r] refresh", "[q] quit"}))
 	}
 
 	return b.String()

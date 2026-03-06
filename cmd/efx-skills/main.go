@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.1.3"
+var version = "0.2.0"
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -92,7 +92,18 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(searchCmd, statusCmd, previewCmd, installCmd, listCmd, syncCmd, configCmd)
+	// Doctor command
+	doctorCmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Verify and repair skill installation integrity",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fix, _ := cmd.Flags().GetBool("fix")
+			return tui.RunDoctor(fix)
+		},
+	}
+	doctorCmd.Flags().Bool("fix", false, "Automatically backfill legacy skill metadata")
+
+	rootCmd.AddCommand(searchCmd, statusCmd, previewCmd, installCmd, listCmd, syncCmd, configCmd, doctorCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

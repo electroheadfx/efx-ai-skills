@@ -86,16 +86,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusModel.width = int(float64(msg.Width) * 0.9)
 		m.searchModel.width = int(float64(msg.Width) * 0.9)
 		m.manageModel.width = int(float64(msg.Width) * 0.9)
+		m.manageModel.height = msg.Height
 		m.configModel.width = int(float64(msg.Width) * 0.9)
 
 	case openManageMsg:
 		m.state = viewManage
 		m.manageModel = newManageModel(msg.provider)
+		m.manageModel.width = int(float64(m.width) * 0.9)
+		m.manageModel.height = m.height
 		return m, m.manageModel.Init()
 
 	case openConfigMsg:
 		m.state = viewConfig
 		m.configModel = newConfigModel()
+		m.configModel.width = int(float64(m.width) * 0.9)
 		return m, m.configModel.Init()
 
 	case openPreviewMsg:

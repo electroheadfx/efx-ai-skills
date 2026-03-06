@@ -18,12 +18,16 @@ type Store struct {
 	LockFile string // ~/.agents/.skill-lock.json
 }
 
-// NewStore creates a new skill store
-func NewStore() *Store {
-	home := os.Getenv("HOME")
+// NewStore creates a new skill store. If skillsPath is empty, it defaults
+// to ~/.agents/skills. The lock file is placed alongside the skills directory.
+func NewStore(skillsPath string) *Store {
+	if skillsPath == "" {
+		home := os.Getenv("HOME")
+		skillsPath = filepath.Join(home, ".agents", "skills")
+	}
 	return &Store{
-		BaseDir:  filepath.Join(home, ".agents", "skills"),
-		LockFile: filepath.Join(home, ".agents", ".skill-lock.json"),
+		BaseDir:  skillsPath,
+		LockFile: filepath.Join(filepath.Dir(skillsPath), ".skill-lock.json"),
 	}
 }
 
@@ -160,6 +164,10 @@ func (s *Store) IsInstalled(skillName string) bool {
 	return err == nil
 }
 
+// gitHubAPIBaseURL is the base URL for GitHub API calls.
+// Tests override this to point to httptest.NewServer.
+var gitHubAPIBaseURL = "https://api.github.com"
+
 // LockEntry represents an entry in the lock file
 type LockEntry struct {
 	Source          string `json:"source"`
@@ -167,6 +175,7 @@ type LockEntry struct {
 	SourceURL       string `json:"sourceUrl"`
 	SkillPath       string `json:"skillPath,omitempty"`
 	SkillFolderHash string `json:"skillFolderHash"`
+	CommitHash      string `json:"commitHash"`
 	InstalledAt     string `json:"installedAt"`
 	UpdatedAt       string `json:"updatedAt"`
 }
@@ -210,8 +219,8 @@ func (s *Store) WriteLockFile(lock *LockFile) error {
 	return os.WriteFile(s.LockFile, data, 0644)
 }
 
-// AddToLock adds a skill to the lock file
-func (s *Store) AddToLock(skillName, source string) error {
+// AddToLock adds a skill to the lock file with an optional commit hash.
+func (s *Store) AddToLock(skillName, source, commitHash string) error {
 	lock, err := s.ReadLockFile()
 	if err != nil {
 		return err
@@ -222,9 +231,148 @@ func (s *Store) AddToLock(skillName, source string) error {
 		Source:      source,
 		SourceType:  "github",
 		SourceURL:   fmt.Sprintf("https://github.com/%s.git", source),
+		CommitHash:  commitHash,
 		InstalledAt: now,
 		UpdatedAt:   now,
 	}
 
 	return s.WriteLockFile(lock)
+}
+
+// RemoveFromLock removes a skill entry from the lock file.
+// If the skill is not present, this is a no-op.
+func (s *Store) RemoveFromLock(skillName string) error {
+	lock, err := s.ReadLockFile()
+	if err != nil {
+		return err
+	}
+	delete(lock.Skills, skillName)
+	return s.WriteLockFile(lock)
+}
+
+// FetchLatestCommitHash fetches the HEAD commit SHA for a GitHub owner/repo.
+func FetchLatestCommitHash(owner, repo string) (string, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/commits?per_page=1", gitHubAPIBaseURL, owner, repo)
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("fetching latest commit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	var commits []struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
+		return "", fmt.Errorf("decoding commit response: %w", err)
+	}
+	if len(commits) == 0 {
+		return "", fmt.Errorf("no commits found for %s/%s", owner, repo)
+	}
+
+	return commits[0].SHA, nil
+}
+
+// CheckForUpdate checks whether a skill has an upstream update available.
+func (s *Store) CheckForUpdate(skillName string) (hasUpdate bool, currentHash string, latestHash string, err error) {
+	lock, err := s.ReadLockFile()
+	if err != nil {
+		return false, "", "", err
+	}
+
+	entry, ok := lock.Skills[skillName]
+	if !ok {
+		return false, "", "", fmt.Errorf("skill %q not found in lock file", skillName)
+	}
+
+	// Parse owner/repo from source
+	parts := strings.Split(entry.Source, "/")
+	if len(parts) < 2 {
+		return false, "", "", fmt.Errorf("invalid source format: %s", entry.Source)
+	}
+
+	latestHash, err = FetchLatestCommitHash(parts[0], parts[1])
+	if err != nil {
+		return false, entry.CommitHash, "", err
+	}
+
+	currentHash = entry.CommitHash
+
+	// Empty stored hash means legacy install -- always treat as updateable
+	if currentHash == "" {
+		return true, currentHash, latestHash, nil
+	}
+
+	return currentHash != latestHash, currentHash, latestHash, nil
+}
+
+// UpdateSkill re-downloads a skill and updates the lock entry with the new commit hash.
+func (s *Store) UpdateSkill(skillName string) error {
+	lock, err := s.ReadLockFile()
+	if err != nil {
+		return err
+	}
+
+	entry, ok := lock.Skills[skillName]
+	if !ok {
+		return fmt.Errorf("skill %q not found in lock file", skillName)
+	}
+
+	// Re-install from source
+	if err := s.Install(entry.Source, skillName); err != nil {
+		return fmt.Errorf("reinstalling %s: %w", skillName, err)
+	}
+
+	// Fetch latest commit hash
+	parts := strings.Split(entry.Source, "/")
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid source format: %s", entry.Source)
+	}
+	latestHash, err := FetchLatestCommitHash(parts[0], parts[1])
+	if err != nil {
+		return fmt.Errorf("fetching commit hash for %s: %w", skillName, err)
+	}
+
+	// Update lock entry
+	entry.CommitHash = latestHash
+	entry.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	lock.Skills[skillName] = entry
+
+	return s.WriteLockFile(lock)
+}
+
+// UpdateAllSkills iterates all locked skills and updates each that has a newer upstream commit.
+// Returns the list of skill names that were updated. Individual failures are collected but do not
+// stop processing of remaining skills.
+func (s *Store) UpdateAllSkills() (updated []string, err error) {
+	lock, err := s.ReadLockFile()
+	if err != nil {
+		return nil, err
+	}
+
+	var errs []string
+	for name := range lock.Skills {
+		hasUpdate, _, _, checkErr := s.CheckForUpdate(name)
+		if checkErr != nil {
+			errs = append(errs, fmt.Sprintf("%s: check failed: %v", name, checkErr))
+			continue
+		}
+		if !hasUpdate {
+			continue
+		}
+
+		if updateErr := s.UpdateSkill(name); updateErr != nil {
+			errs = append(errs, fmt.Sprintf("%s: update failed: %v", name, updateErr))
+			continue
+		}
+		updated = append(updated, name)
+	}
+
+	if len(errs) > 0 {
+		return updated, fmt.Errorf("some skills failed to update: %s", strings.Join(errs, "; "))
+	}
+	return updated, nil
 }

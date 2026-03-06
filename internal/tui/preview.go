@@ -169,14 +169,13 @@ func (m previewModel) Update(msg tea.Msg) (previewModel, tea.Cmd) {
 }
 
 func (m previewModel) headerView() string {
-	title := titleStyle.Render("efx-skills v0.1.3 - Laurent Marques")
-	skillTitle := subtitleStyle.Render(fmt.Sprintf("Preview: %s", m.skillName))
-	return title + "\n" + skillTitle
+	title := renderTitleBox(fmt.Sprintf("Preview: %s", m.skillName))
+	return title
 }
 
 func (m previewModel) footerView() string {
-	info := helpStyle.Render(fmt.Sprintf("  %3.f%% • [j/k/↑/↓] scroll  [space/b] page  [g/G] top/bottom  [esc] back", m.viewport.ScrollPercent()*100))
-	return info
+	scrollPct := fmt.Sprintf("%3.0f%%", m.viewport.ScrollPercent()*100)
+	return renderHelpBar(m.viewport.Width, []string{scrollPct, "[j/k/up/down] scroll", "[space/b] page", "[g/G] top/bottom", "[esc] back"})
 }
 
 func (m previewModel) View() string {

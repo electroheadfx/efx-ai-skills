@@ -13,17 +13,28 @@ type Provider struct {
 	SkillCount int
 }
 
-// Known providers and their paths
-var KnownProviders = []struct {
-	Name     string
-	PathFunc func(home string) string
-}{
-	{"claude", func(h string) string { return filepath.Join(h, ".claude", "skills") }},
-	{"cursor", func(h string) string { return filepath.Join(h, ".cursor", "skills") }},
-	{"qoder", func(h string) string { return filepath.Join(h, ".qoder", "skills") }},
-	{"windsurf", func(h string) string { return filepath.Join(h, ".windsurf", "skills") }},
-	{"copilot", func(h string) string { return filepath.Join(h, ".copilot", "skills") }},
-	{"opencode", func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") }},
+// Definition describes a known provider and how to find its skills directory.
+type Definition struct {
+	Name           string
+	DefaultEnabled bool
+	Path           func(home string) string
+}
+
+var definitions = []Definition{
+	{Name: "claude", DefaultEnabled: true, Path: func(h string) string { return filepath.Join(h, ".claude", "skills") }},
+	{Name: "cursor", DefaultEnabled: true, Path: func(h string) string { return filepath.Join(h, ".cursor", "skills") }},
+	{Name: "qoder", DefaultEnabled: true, Path: func(h string) string { return filepath.Join(h, ".qoder", "skills") }},
+	{Name: "windsurf", DefaultEnabled: false, Path: func(h string) string { return filepath.Join(h, ".windsurf", "skills") }},
+	{Name: "copilot", DefaultEnabled: false, Path: func(h string) string { return filepath.Join(h, ".copilot", "skills") }},
+	{Name: "opencode", DefaultEnabled: false, Path: func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") }},
+	{Name: "codex", DefaultEnabled: false, Path: func(h string) string { return filepath.Join(h, ".codex", "skills") }},
+}
+
+// Definitions returns the known provider catalog.
+func Definitions() []Definition {
+	defs := make([]Definition, len(definitions))
+	copy(defs, definitions)
+	return defs
 }
 
 // DetectAll detects all providers on the system
@@ -31,17 +42,15 @@ func DetectAll() []Provider {
 	home := os.Getenv("HOME")
 	var providers []Provider
 
-	for _, kp := range KnownProviders {
+	for _, def := range definitions {
 		p := Provider{
-			Name:       kp.Name,
-			SkillsPath: kp.PathFunc(home),
+			Name:       def.Name,
+			SkillsPath: def.Path(home),
 		}
 
-		// Check if directory exists
 		if info, err := os.Stat(p.SkillsPath); err == nil && info.IsDir() {
 			p.Configured = true
 
-			// Count skills
 			if entries, err := os.ReadDir(p.SkillsPath); err == nil {
 				for _, e := range entries {
 					if e.Name() != ".DS_Store" {
@@ -61,11 +70,11 @@ func DetectAll() []Provider {
 func Get(name string) *Provider {
 	home := os.Getenv("HOME")
 
-	for _, kp := range KnownProviders {
-		if kp.Name == name {
+	for _, def := range definitions {
+		if def.Name == name {
 			p := &Provider{
-				Name:       kp.Name,
-				SkillsPath: kp.PathFunc(home),
+				Name:       def.Name,
+				SkillsPath: def.Path(home),
 			}
 
 			if info, err := os.Stat(p.SkillsPath); err == nil && info.IsDir() {

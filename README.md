@@ -12,7 +12,7 @@
 - 🔍 **Unified Search** - Search skills from skills.sh and playbooks.com registries
 - 👀 **Beautiful Preview** - View skill documentation with rendered Markdown
 - 📦 **Centralized Storage** - One skill library (`~/.agents/skills/`) shared across all providers
-- 🔗 **Smart Linking** - Symlink skills to multiple providers (Claude, Cursor, Qoder, Windsurf, Copilot)
+- 🔗 **Smart Linking** - Symlink skills to multiple providers (Claude, Cursor, Qoder, Windsurf, Copilot, Codex)
 - 🎨 **Intuitive TUI** - Built with Charm's [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 - ⚡ **Fast & Lightweight** - Single Go binary, no dependencies
 - 🔄 **Sync Management** - Keep skills in sync across all providers
@@ -160,6 +160,7 @@ efx-skills --version
 ~/.cursor/skills/             # Symlinks to central storage
 ~/.qoder/skills/              # Symlinks to central storage
 ~/.windsurf/skills/           # Symlinks to central storage
+~/.codex/skills/              # Symlinks to central storage
 ```
 
 ## 🎨 Supported Providers
@@ -174,6 +175,7 @@ efx-skills --version
 - **Cline** (`~/.cline/skills/`) - Cline VSCode Extension
 - **Roo Code** (`~/.roo-code/skills/`) - Roo Code Extension
 - **OpenCode** (`~/.config/opencode/skills/`) - OpenCode Assistant
+- **Codex** (`~/.codex/skills/`) - OpenAI Codex CLI
 - **Continue** (`~/.continue/skills/`) - Continue.dev Extension
 
 Each provider can be individually enabled/disabled in the configuration.
@@ -231,10 +233,11 @@ Configuration is stored in `~/.config/efx-skills/config.json`:
   "repos": [
     "yoanbernabeu/grepai-skills"
   ],
-  "providers": [
+  "enabled_providers": [
     "claude",
     "cursor",
-    "qoder"
+    "qoder",
+    "codex"
   ]
 }
 ```
@@ -256,6 +259,11 @@ Built with:
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 
 ## 📋 Changelog
+
+### v0.2.1
+
+- Added OpenAI Codex provider support at `~/.codex/skills/`
+- Centralized provider definitions so future provider additions happen in one place
 
 ### v0.1.4
 

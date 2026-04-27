@@ -581,9 +581,9 @@ func TestSkillEntryOriginLabel(t *testing.T) {
 	// Test the display label logic that combines Registry and Origin fields.
 	// Registry skills show registryDisplayName; custom skills show Origin label.
 	tests := []struct {
-		name     string
-		entry    SkillEntry
-		wantTag  string // expected parenthetical label, or "" if none
+		name    string
+		entry   SkillEntry
+		wantTag string // expected parenthetical label, or "" if none
 	}{
 		{
 			name:    "registry skill shows registry display name",
@@ -706,6 +706,83 @@ func TestDetectProvidersConfigCanEnableCodex(t *testing.T) {
 	if codex.Synced {
 		t.Fatalf("codex Synced = true, want false without directory")
 	}
+}
+
+func TestApplySkillChangesConfiguresProviderAndPersistsEnabledProvider(t *testing.T) {
+	home := setTestHome(t)
+	skillsDir := filepath.Join(home, ".agents", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "agent-browser"), 0755); err != nil {
+		t.Fatalf("create central skill: %v", err)
+	}
+	cfg := &ConfigData{
+		Registries: defaultRegistries(),
+		Repos:      defaultRepos(),
+		Providers:  []string{"claude", "opencode"},
+		SkillsPath: skillsDir,
+		Skills:     []SkillMeta{},
+	}
+	if err := saveConfigData(cfg); err != nil {
+		t.Fatalf("saveConfigData seed failed: %v", err)
+	}
+
+	codexPath := filepath.Join(home, ".codex", "skills")
+	provider := Provider{Name: "codex", Path: codexPath, Configured: false}
+	skills := []SkillEntry{{Name: "agent-browser", Selected: true, Linked: false}}
+
+	if err := applySkillChanges(provider, skills); err != nil {
+		t.Fatalf("applySkillChanges failed: %v", err)
+	}
+
+	if _, err := os.Lstat(filepath.Join(codexPath, "agent-browser")); err != nil {
+		t.Fatalf("codex skill link was not created: %v", err)
+	}
+	reloaded := loadConfigFromFile()
+	if reloaded == nil {
+		t.Fatal("config file missing after applySkillChanges")
+	}
+	if !stringSliceContains(reloaded.Providers, "codex") {
+		t.Fatalf("enabled providers = %v, want codex included", reloaded.Providers)
+	}
+}
+
+func TestApplySkillChangesPreservesDetectedProvidersWhenCreatingConfig(t *testing.T) {
+	home := setTestHome(t)
+	skillsDir := filepath.Join(home, ".agents", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "agent-browser"), 0755); err != nil {
+		t.Fatalf("create central skill: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".claude", "skills"), 0755); err != nil {
+		t.Fatalf("create claude provider: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".config", "opencode", "skills"), 0755); err != nil {
+		t.Fatalf("create opencode provider: %v", err)
+	}
+
+	provider := Provider{Name: "codex", Path: filepath.Join(home, ".codex", "skills"), Configured: false}
+	skills := []SkillEntry{{Name: "agent-browser", Selected: true, Linked: false}}
+
+	if err := applySkillChanges(provider, skills); err != nil {
+		t.Fatalf("applySkillChanges failed: %v", err)
+	}
+
+	reloaded := loadConfigFromFile()
+	if reloaded == nil {
+		t.Fatal("config file missing after applySkillChanges")
+	}
+	for _, providerName := range []string{"claude", "opencode", "codex"} {
+		if !stringSliceContains(reloaded.Providers, providerName) {
+			t.Fatalf("enabled providers = %v, want %s included", reloaded.Providers, providerName)
+		}
+	}
+}
+
+func stringSliceContains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(s, substr string) bool {

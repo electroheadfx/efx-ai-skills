@@ -39,16 +39,16 @@ type SkillGroup struct {
 
 // manageModel handles the provider management view
 type manageModel struct {
-	provider    Provider
-	skills      []SkillEntry
-	groups      []SkillGroup
-	displayList []displayItem // flat list for rendering (groups + skills)
-	selectedIdx int
-	width       int
-	height      int
-	paginator   paginator.Model
-	loading     bool
-	err         error
+	provider         Provider
+	skills           []SkillEntry
+	groups           []SkillGroup
+	displayList      []displayItem // flat list for rendering (groups + skills)
+	selectedIdx      int
+	width            int
+	height           int
+	paginator        paginator.Model
+	loading          bool
+	err              error
 	statusMsg        string // feedback message shown at bottom of view
 	updating         bool   // true while an update operation is in progress
 	confirmingRemove bool   // true while showing remove confirmation dialog
@@ -56,10 +56,10 @@ type manageModel struct {
 }
 
 type displayItem struct {
-	isGroup    bool
-	groupIdx   int // index into groups slice
-	skillIdx   int // index into skills slice
-	groupName  string
+	isGroup   bool
+	groupIdx  int // index into groups slice
+	skillIdx  int // index into skills slice
+	groupName string
 }
 
 type skillsLoadedMsg struct {
@@ -349,7 +349,7 @@ func (m *manageModel) isGroupPartialSelected(groupIdx int) bool {
 func (m *manageModel) toggleGroup(groupIdx int) {
 	group := m.groups[groupIdx]
 	allSelected := m.isGroupAllSelected(groupIdx)
-	
+
 	for _, skillIdx := range group.Skills {
 		m.skills[skillIdx].Selected = !allSelected
 	}
@@ -529,7 +529,9 @@ func (m manageModel) Update(msg tea.Msg) (manageModel, tea.Cmd) {
 		case "s":
 			// Apply/save changes
 			return m, func() tea.Msg {
-				applySkillChanges(m.provider, m.skills)
+				if err := applySkillChanges(m.provider, m.skills); err != nil {
+					return errMsg{err: err}
+				}
 				return skillsLoadedMsg{skills: loadSkillsForProvider(m.provider)}
 			}
 		case "o":
@@ -620,9 +622,34 @@ func (m manageModel) Update(msg tea.Msg) (manageModel, tea.Cmd) {
 	return m, cmd
 }
 
-func applySkillChanges(provider Provider, skills []SkillEntry) {
+func applySkillChanges(provider Provider, skills []SkillEntry) error {
 	if !provider.Configured {
-		os.MkdirAll(provider.Path, 0755)
+		if err := os.MkdirAll(provider.Path, 0755); err != nil {
+			return err
+		}
+		cfg := loadConfigFromFile()
+		if cfg == nil {
+			cfg = &ConfigData{
+				Registries: defaultRegistries(),
+				Repos:      defaultRepos(),
+				SkillsPath: defaultSkillsPath(),
+				Skills:     []SkillMeta{},
+			}
+		}
+		if len(cfg.Providers) == 0 {
+			for _, p := range detectProviders() {
+				if p.Configured && !providerListContains(cfg.Providers, p.Name) {
+					cfg.Providers = append(cfg.Providers, p.Name)
+				}
+			}
+		}
+		if !providerListContains(cfg.Providers, provider.Name) {
+			cfg.Providers = append(cfg.Providers, provider.Name)
+		}
+		if err := saveConfigData(cfg); err != nil {
+			return err
+		}
+		provider.Configured = true
 	}
 
 	home := os.Getenv("HOME")
@@ -631,15 +658,32 @@ func applySkillChanges(provider Provider, skills []SkillEntry) {
 	for _, skill := range skills {
 		linkPath := filepath.Join(provider.Path, skill.Name)
 		targetPath := filepath.Join(skillsDir, skill.Name)
-		relPath, _ := filepath.Rel(provider.Path, targetPath)
+		relPath, err := filepath.Rel(provider.Path, targetPath)
+		if err != nil {
+			return err
+		}
 
 		if skill.Selected && !skill.Linked {
-			os.Symlink(relPath, linkPath)
+			if err := os.Symlink(relPath, linkPath); err != nil {
+				return err
+			}
 		} else if !skill.Selected && skill.Linked {
-			os.RemoveAll(linkPath)
+			if err := os.RemoveAll(linkPath); err != nil {
+				return err
+			}
 		}
 	}
 
+	return nil
+}
+
+func providerListContains(providers []string, target string) bool {
+	for _, provider := range providers {
+		if provider == target {
+			return true
+		}
+	}
+	return false
 }
 
 func removeSkillFully(skillName string) {

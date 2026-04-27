@@ -642,6 +642,72 @@ func TestSkillEntryOriginLabel(t *testing.T) {
 	}
 }
 
+func TestDetectProvidersIncludesCodexFromCatalog(t *testing.T) {
+	home := setTestHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".codex", "skills", "example-skill"), 0755); err != nil {
+		t.Fatalf("create codex skill: %v", err)
+	}
+
+	providers := detectProviders()
+	var codex *Provider
+	for i := range providers {
+		if providers[i].Name == "codex" {
+			codex = &providers[i]
+			break
+		}
+	}
+
+	if codex == nil {
+		t.Fatalf("detectProviders() missing codex")
+	}
+	if codex.Path != filepath.Join(home, ".codex", "skills") {
+		t.Fatalf("codex Path = %q, want %q", codex.Path, filepath.Join(home, ".codex", "skills"))
+	}
+	if !codex.Configured {
+		t.Fatalf("codex Configured = false, want true when directory exists and no config overrides providers")
+	}
+	if codex.SkillCount != 1 {
+		t.Fatalf("codex SkillCount = %d, want 1", codex.SkillCount)
+	}
+	if !codex.Synced {
+		t.Fatalf("codex Synced = false, want true")
+	}
+}
+
+func TestDetectProvidersConfigCanEnableCodex(t *testing.T) {
+	home := setTestHome(t)
+	configDir := filepath.Join(home, ".config", "efx-skills")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("create config dir: %v", err)
+	}
+	config := `{"enabled_providers":["codex"]}`
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(config), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	providers := detectProviders()
+	var codex *Provider
+	for i := range providers {
+		if providers[i].Name == "codex" {
+			codex = &providers[i]
+			break
+		}
+	}
+
+	if codex == nil {
+		t.Fatalf("detectProviders() missing codex")
+	}
+	if !codex.Configured {
+		t.Fatalf("codex Configured = false, want true from enabled_providers")
+	}
+	if codex.SkillCount != 0 {
+		t.Fatalf("codex SkillCount = %d, want 0 without directory", codex.SkillCount)
+	}
+	if codex.Synced {
+		t.Fatalf("codex Synced = true, want false without directory")
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && searchString(s, substr)
 }

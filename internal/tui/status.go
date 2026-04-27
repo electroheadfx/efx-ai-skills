@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/lmarques/efx-skills/internal/provider"
 )
 
 // Provider represents an AI coding agent provider
@@ -96,43 +97,28 @@ func detectProviders() []Provider {
 		}
 	}
 
-	providerDefs := []struct {
-		name string
-		path string
-	}{
-		{"claude", filepath.Join(home, ".claude", "skills")},
-		{"cursor", filepath.Join(home, ".cursor", "skills")},
-		{"qoder", filepath.Join(home, ".qoder", "skills")},
-		{"windsurf", filepath.Join(home, ".windsurf", "skills")},
-		{"copilot", filepath.Join(home, ".copilot", "skills")},
-		{"opencode", filepath.Join(home, ".config", "opencode", "skills")},
-	}
-
 	var providers []Provider
 
-	for _, pd := range providerDefs {
+	for _, def := range provider.Definitions() {
+		path := def.Path(home)
 		p := Provider{
-			Name: pd.name,
-			Path: pd.path,
+			Name: def.Name,
+			Path: path,
 		}
 
-		// Check if directory exists on disk
 		dirExists := false
-		if info, err := os.Stat(pd.path); err == nil && info.IsDir() {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
 			dirExists = true
 		}
 
 		if enabledSet != nil {
-			// Config exists with enabled_providers: use config state
-			p.Configured = enabledSet[pd.name]
+			p.Configured = enabledSet[def.Name]
 		} else {
-			// No config: fall back to directory existence
 			p.Configured = dirExists
 		}
 
-		// Count skills if directory exists and provider is configured
 		if dirExists && p.Configured {
-			if entries, err := os.ReadDir(pd.path); err == nil {
+			if entries, err := os.ReadDir(path); err == nil {
 				for _, e := range entries {
 					if e.Name() != ".DS_Store" {
 						p.SkillCount++

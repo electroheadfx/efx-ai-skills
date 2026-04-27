@@ -192,7 +192,7 @@ func (m statusModel) View() string {
 	// Title
 	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(primary).Render(asciiLogo))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Render("v0.2.0 - Laurent Marques"))
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Render("v0.2.1 - Laurent Marques"))
 	b.WriteString("\n")
 
 	if m.loading {

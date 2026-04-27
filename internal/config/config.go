@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/lmarques/efx-skills/internal/provider"
 )
 
 // Config represents the application configuration
@@ -29,6 +31,13 @@ type ProviderConfig struct {
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	home := os.Getenv("HOME")
+	providers := make(map[string]ProviderConfig)
+	for _, def := range provider.Definitions() {
+		providers[def.Name] = ProviderConfig{
+			Enabled: def.DefaultEnabled,
+			Path:    def.Path(home),
+		}
+	}
 
 	return &Config{
 		Registries: []Registry{
@@ -40,14 +49,7 @@ func DefaultConfig() *Config {
 			"better-auth/skills",
 			"awni/mlx-skills",
 		},
-		Providers: map[string]ProviderConfig{
-			"claude":   {Enabled: true, Path: filepath.Join(home, ".claude", "skills")},
-			"cursor":   {Enabled: true, Path: filepath.Join(home, ".cursor", "skills")},
-			"qoder":    {Enabled: true, Path: filepath.Join(home, ".qoder", "skills")},
-			"windsurf": {Enabled: false, Path: filepath.Join(home, ".windsurf", "skills")},
-			"copilot":  {Enabled: false, Path: filepath.Join(home, ".copilot", "skills")},
-			"opencode": {Enabled: false, Path: filepath.Join(home, ".config", "opencode", "skills")},
-		},
+		Providers: providers,
 	}
 }
 

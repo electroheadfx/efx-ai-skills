@@ -4,8 +4,8 @@ milestone: v0.2
 milestone_name: Origin & Metadata
 status: shipped
 stopped_at: Milestone v0.2.0 archived
-last_updated: "2026-03-06T18:50:00Z"
-last_activity: 2026-03-06 -- Milestone v0.2.0 archived and tagged
+last_updated: "2026-04-27T10:12:36Z"
+last_activity: 2026-04-27 - Completed quick task 1: Persist provider enablement when saving skills for newly configured providers
 progress:
   total_phases: 6
   completed_phases: 6
@@ -43,6 +43,12 @@ None.
 ### Blockers/Concerns
 
 - Two dead-code packages (`internal/config`, `internal/provider`) — cleanup candidate for future milestone
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Persist provider enablement when saving skills for newly configured providers | 2026-04-27 | 8cf3e3e | [1-persist-provider-enablement-when-saving-](./quick/1-persist-provider-enablement-when-saving-/) |
 
 ## Session Continuity
 
